@@ -2,6 +2,7 @@ import traceback
 
 from common import common
 from extractor import Extractor
+import csv
 
 SHOW_TOP_CONTEXTS = 10
 MAX_PATH_LENGTH = 8
@@ -55,3 +56,17 @@ class InteractivePredictor:
                 if self.config.EXPORT_CODE_VECTORS:
                     print('Code vector:')
                     print(' '.join(map(str, raw_prediction.code_vector)))
+
+                # Write TSV files with meta data and embeddings
+                embeddings = [data['embedding'].tolist() for data in method_prediction.context_embeddings]
+                meta = [[data['token1'] + " - " + data['path'] + " - " + data['token2']] for data in method_prediction.context_embeddings]
+
+                with open('tsv/%s_embed.tsv' % method_prediction.original_name , 'w+') as f:
+                    writer = csv.writer(f, delimiter='\t')
+                    writer.writerows(embeddings)
+                    f.flush()
+
+                with open('tsv/%s_meta.tsv' % method_prediction.original_name , 'w+') as f:
+                    writer = csv.writer(f, delimiter='\t')
+                    writer.writerows(meta)
+                    f.flush()

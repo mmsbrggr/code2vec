@@ -154,6 +154,19 @@ class common:
                     unhashed_path = unhash_dict[hashed_path]
                     current_method_prediction_results.append_attention_path(attention.item(), token1=token1,
                                                                             path=unhashed_path, token2=token2)
+
+            for context in single_method_prediction.embed_per_context:
+                token1, hashed_path, token2 = context
+                embedding = single_method_prediction.embed_per_context[context]
+                if hashed_path in unhash_dict:
+                    unhashed_path = unhash_dict[hashed_path]
+                    current_method_prediction_results.append_context_embedding(
+                        embedding,
+                        token1,
+                        unhashed_path,
+                        token2
+                    )
+
             prediction_results.append(current_method_prediction_results)
         return prediction_results
 
@@ -206,9 +219,18 @@ class MethodPredictionResults:
         self.original_name = original_name
         self.predictions = list()
         self.attention_paths = list()
+        self.context_embeddings = list()
 
     def append_prediction(self, name, probability):
         self.predictions.append({'name': name, 'probability': probability})
+
+    def append_context_embedding(self, embedding, token1, path, token2):
+        self.context_embeddings.append({
+            'embedding': embedding,
+            'path': path,
+            'token1': token1,
+            'token2': token2
+        })
 
     def append_attention_path(self, attention_score, token1, path, token2):
         self.attention_paths.append({'score': attention_score,
