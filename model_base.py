@@ -31,6 +31,7 @@ class ModelPredictionResults(NamedTuple):
     topk_predicted_words: np.ndarray
     topk_predicted_words_scores: np.ndarray
     attention_per_context: Dict[Tuple[str, str, str], float]
+    embed_per_context: Dict[Tuple[str, str, str], np.ndarray]
     code_vector: Optional[np.ndarray] = None
 
 
@@ -126,6 +127,19 @@ class Code2VecModelBase(abc.ABC):
                                       common.binary_to_string(path_target))
             attention_per_context[string_context_triplet] = weight
         return attention_per_context
+
+    def _get_embed_per_context(
+            self, path_source_strings: Iterable[str], path_strings: Iterable[str], path_target_strings: Iterable[str],
+            embeddings: Iterable[np.ndarray]) -> Dict[Tuple[str, str, str], np.ndarray]:
+        embed_per_context: Dict[Tuple[str, str, str], np.ndarray] = {}
+        # iterate over contexts
+        for path_source, path, path_target, embed in \
+                zip(path_source_strings, path_strings, path_target_strings, embeddings):
+            string_context_triplet = (common.binary_to_string(path_source),
+                                      common.binary_to_string(path),
+                                      common.binary_to_string(path_target))
+            embed_per_context[string_context_triplet] = embed
+        return embed_per_context
 
     def close_session(self):
         # can be overridden by the implementation model class.
