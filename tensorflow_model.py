@@ -121,7 +121,7 @@ class Code2VecModel(Code2VecModelBase):
             self.eval_input_iterator_reset_op = input_iterator.initializer
             input_tensors = input_iterator.get_next()
 
-            self.eval_top_words_op, self.eval_top_values_op, self.eval_original_names_op, _, _, _, _, _, \
+            self.eval_top_words_op, self.eval_top_values_op, self.eval_original_names_op, _, _, _, _, _, _, \
                 self.eval_code_vectors = self._build_tf_test_graph(input_tensors)
             self.saver = tf.compat.v1.train.Saver()
 
@@ -218,7 +218,7 @@ class Code2VecModel(Code2VecModelBase):
                 shape=(self.vocabs.path_vocab.size, self.config.PATH_EMBEDDINGS_SIZE), dtype=tf.float32,
                 initializer=tf.compat.v1.initializers.variance_scaling(scale=1.0, mode='fan_out', distribution="uniform"))
 
-            code_vectors, _, _ = self._calculate_weighted_contexts(
+            code_vectors, _, _, _ = self._calculate_weighted_contexts(
                 tokens_vocab, paths_vocab, attention_param, input_tensors.path_source_token_indices,
                 input_tensors.path_indices, input_tensors.path_target_token_indices, input_tensors.context_valid_mask)
 
@@ -261,7 +261,7 @@ class Code2VecModel(Code2VecModelBase):
         batched_embed = tf.reshape(flat_embed, shape=[-1, self.config.MAX_CONTEXTS, self.config.CODE_VECTOR_SIZE])
         code_vectors = tf.reduce_sum(tf.multiply(batched_embed, attention_weights), axis=1)  # (batch, dim * 3)
 
-        return code_vectors, attention_weights, flat_embed
+        return code_vectors, attention_weights, flat_embed, path_embed
 
     def _build_tf_test_graph(self, input_tensors, normalize_scores=False):
         with tf.compat.v1.variable_scope('model', reuse=self.get_should_reuse_variables()):
@@ -288,7 +288,7 @@ class Code2VecModel(Code2VecModelBase):
             # shape of (batch, 1) for input_tensors.target_string
             # shape of (batch, max_contexts) for the other tensors
 
-            code_vectors, attention_weights, flat_embed = self._calculate_weighted_contexts(
+            code_vectors, attention_weights, flat_embed, path_embed = self._calculate_weighted_contexts(
                 tokens_vocab, paths_vocab, attention_param, input_tensors.path_source_token_indices,
                 input_tensors.path_indices, input_tensors.path_target_token_indices,
                 input_tensors.context_valid_mask, is_evaluating=True)
@@ -304,7 +304,7 @@ class Code2VecModel(Code2VecModelBase):
         if normalize_scores:
             top_scores = tf.nn.softmax(top_scores)
 
-        return top_words, top_scores, original_words, attention_weights, flat_embed,\
+        return top_words, top_scores, original_words, attention_weights, flat_embed, path_embed, \
                input_tensors.path_source_token_strings, input_tensors.path_strings, \
                input_tensors.path_target_token_strings, code_vectors
 
@@ -317,8 +317,8 @@ class Code2VecModel(Code2VecModelBase):
             reader_output = self.predict_reader.process_input_row(self.predict_placeholder)
 
             self.predict_top_words_op, self.predict_top_values_op, self.predict_original_names_op, \
-            self.attention_weights_op, self.flat_embed_op, self.predict_source_string, self.predict_path_string, \
-            self.predict_path_target_string, self.predict_code_vectors = \
+            self.attention_weights_op, self.flat_embed_op, self.path_embed_op, self.predict_source_string,\
+            self.predict_path_string, self.predict_path_target_string, self.predict_code_vectors = \
                 self._build_tf_test_graph(reader_output, normalize_scores=True)
 
             self._initialize_session_variables()
@@ -327,11 +327,12 @@ class Code2VecModel(Code2VecModelBase):
 
         prediction_results: List[ModelPredictionResults] = []
         for line in predict_data_lines:
-            batch_top_words, batch_top_scores, batch_original_name, batch_attention_weights, flat_embed,\
-            batch_path_source_strings, batch_path_strings, batch_path_target_strings, batch_code_vectors \
+            batch_top_words, batch_top_scores, batch_original_name, batch_attention_weights, flat_embed, \
+                batch_path_embed, batch_path_source_strings, batch_path_strings, \
+                batch_path_target_strings, batch_code_vectors \
                 = self.sess.run(
                     [self.predict_top_words_op, self.predict_top_values_op, self.predict_original_names_op,
-                     self.attention_weights_op, self.flat_embed_op, self.predict_source_string,
+                     self.attention_weights_op, self.flat_embed_op, self.path_embed_op, self.predict_source_string,
                      self.predict_path_string, self.predict_path_target_string, self.predict_code_vectors],
                     feed_dict={self.predict_placeholder: line})
             # shapes:
@@ -343,13 +344,14 @@ class Code2VecModel(Code2VecModelBase):
 
             # remove first axis: (batch=1, ...)
             assert all(tensor.shape[0] == 1 for tensor in (batch_top_words, batch_top_scores, batch_original_name,
-                                                           batch_attention_weights, batch_path_source_strings,
-                                                           batch_path_strings, batch_path_target_strings,
-                                                           batch_code_vectors))
+                                                           batch_attention_weights, batch_path_embed,
+                                                           batch_path_source_strings, batch_path_strings,
+                                                           batch_path_target_strings, batch_code_vectors))
             top_words = np.squeeze(batch_top_words, axis=0)
             top_scores = np.squeeze(batch_top_scores, axis=0)
             original_name = batch_original_name[0]
             attention_weights = np.squeeze(batch_attention_weights, axis=0)
+            path_embed = np.squeeze(batch_path_embed, axis=0)
             path_source_strings = np.squeeze(batch_path_source_strings, axis=0)
             path_strings = np.squeeze(batch_path_strings, axis=0)
             path_target_strings = np.squeeze(batch_path_target_strings, axis=0)
@@ -361,12 +363,14 @@ class Code2VecModel(Code2VecModelBase):
                 path_source_strings, path_strings, path_target_strings, attention_weights)
             embed_per_context = self._get_embed_per_context(
                 path_source_strings, path_strings, path_target_strings, flat_embed)
+            embed_per_path = self._get_embed_per_path(path_strings, path_embed)
             prediction_results.append(ModelPredictionResults(
                 original_name=original_name,
                 topk_predicted_words=top_words,
                 topk_predicted_words_scores=top_scores,
                 attention_per_context=attention_per_context,
                 embed_per_context=embed_per_context,
+                embed_per_path=embed_per_path,
                 code_vector=(code_vectors if self.config.EXPORT_CODE_VECTORS else None)
             ))
         return prediction_results

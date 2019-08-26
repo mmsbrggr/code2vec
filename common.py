@@ -167,6 +167,12 @@ class common:
                         token2
                     )
 
+            for hashed_path in single_method_prediction.embed_per_path:
+                if hashed_path in unhash_dict:
+                    unhashed_path = unhash_dict[hashed_path]
+                    embedding = single_method_prediction.embed_per_path[hashed_path]
+                    current_method_prediction_results.append_path_embedding(embedding, unhashed_path)
+
             prediction_results.append(current_method_prediction_results)
         return prediction_results
 
@@ -220,6 +226,7 @@ class MethodPredictionResults:
         self.predictions = list()
         self.attention_paths = list()
         self.context_embeddings = list()
+        self.path_embeddings = list()
 
     def append_prediction(self, name, probability):
         self.predictions.append({'name': name, 'probability': probability})
@@ -230,6 +237,12 @@ class MethodPredictionResults:
             'path': path,
             'token1': token1,
             'token2': token2
+        })
+
+    def append_path_embedding(self, embedding, path):
+        self.path_embeddings.append({
+            'embedding': embedding,
+            'path': path
         })
 
     def append_attention_path(self, attention_score, token1, path, token2):

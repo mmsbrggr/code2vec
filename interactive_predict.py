@@ -10,6 +10,18 @@ MAX_PATH_WIDTH = 2
 JAR_PATH = 'JavaExtractor/JPredict/target/JavaExtractor-0.0.1-SNAPSHOT.jar'
 
 
+def log_embeddings_to_files(name, embeddings, meta):
+    with open('tsv/%s_embed.tsv' % name, 'w+') as f:
+        writer = csv.writer(f, delimiter='\t')
+        writer.writerows(embeddings)
+        f.flush()
+
+    with open('tsv/%s_meta.tsv' % name, 'w+') as f:
+        writer = csv.writer(f, delimiter='\t')
+        writer.writerows(meta)
+        f.flush()
+
+
 class InteractivePredictor:
     exit_keywords = ['exit', 'quit', 'q']
 
@@ -58,15 +70,10 @@ class InteractivePredictor:
                     print(' '.join(map(str, raw_prediction.code_vector)))
 
                 # Write TSV files with meta data and embeddings
-                embeddings = [data['embedding'].tolist() for data in method_prediction.context_embeddings]
-                meta = [[data['token1'] + " - " + data['path'] + " - " + data['token2']] for data in method_prediction.context_embeddings]
+                #embeddings = [data['embedding'].tolist() for data in method_prediction.context_embeddings]
+                #meta = [[data['token1'] + " - " + data['path'] + " - " + data['token2']] for data in method_prediction.context_embeddings]
 
-                with open('tsv/%s_embed.tsv' % method_prediction.original_name , 'w+') as f:
-                    writer = csv.writer(f, delimiter='\t')
-                    writer.writerows(embeddings)
-                    f.flush()
+                embeddings = [data['embedding'].tolist() for data in method_prediction.path_embeddings]
+                meta = [[data['path']] for data in method_prediction.path_embeddings]
 
-                with open('tsv/%s_meta.tsv' % method_prediction.original_name , 'w+') as f:
-                    writer = csv.writer(f, delimiter='\t')
-                    writer.writerows(meta)
-                    f.flush()
+                log_embeddings_to_files(method_prediction.original_name, embeddings, meta)
