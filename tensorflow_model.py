@@ -213,14 +213,10 @@ class Code2VecModel(Code2VecModelBase):
             attention_param = tf.compat.v1.get_variable(
                 'ATTENTION',
                 shape=(self.config.CODE_VECTOR_SIZE, 1), dtype=tf.float32)
-            paths_vocab = tf.compat.v1.get_variable(
-                self.vocab_type_to_tf_variable_name_mapping[VocabType.Path],
-                shape=(self.vocabs.path_vocab.size, self.config.PATH_EMBEDDINGS_SIZE), dtype=tf.float32,
-                initializer=tf.compat.v1.initializers.variance_scaling(scale=1.0, mode='fan_out', distribution="uniform"))
 
             code_vectors, _ = self._calculate_weighted_contexts(
-                tokens_vocab, paths_vocab, attention_param, input_tensors.path_source_token_indices,
-                input_tensors.path_indices, input_tensors.path_target_token_indices, input_tensors.context_valid_mask)
+                tokens_vocab, attention_param, input_tensors.path_source_token_indices,
+                input_tensors.path_target_token_indices, input_tensors.context_valid_mask)
 
             logits = tf.matmul(code_vectors, targets_vocab, transpose_b=True)
             batch_size = tf.cast(tf.shape(input_tensors.target_index)[0], dtype=tf.float32)
@@ -232,14 +228,13 @@ class Code2VecModel(Code2VecModelBase):
 
         return optimizer, loss
 
-    def _calculate_weighted_contexts(self, tokens_vocab, paths_vocab, attention_param, source_input, path_input,
+    def _calculate_weighted_contexts(self, tokens_vocab, attention_param, source_input,
                                      target_input, valid_mask, is_evaluating=False):
         source_word_embed = tf.nn.embedding_lookup(params=tokens_vocab, ids=source_input)  # (batch, max_contexts, dim)
-        path_embed = tf.nn.embedding_lookup(params=paths_vocab, ids=path_input)  # (batch, max_contexts, dim)
         target_word_embed = tf.nn.embedding_lookup(params=tokens_vocab, ids=target_input)  # (batch, max_contexts, dim)
 
-        context_embed = tf.concat([source_word_embed, path_embed, target_word_embed],
-                                  axis=-1)  # (batch, max_contexts, dim * 3)
+        context_embed = tf.concat([source_word_embed, target_word_embed],
+                                  axis=-1)  # (batch, max_contexts, dim * 2)
 
         if not is_evaluating:
             context_embed = tf.nn.dropout(context_embed, rate=1-self.config.DROPOUT_KEEP_RATE)
@@ -248,7 +243,7 @@ class Code2VecModel(Code2VecModelBase):
         transform_param = tf.compat.v1.get_variable(
             'TRANSFORM', shape=(self.config.context_vector_size, self.config.CODE_VECTOR_SIZE), dtype=tf.float32)
 
-        flat_embed = tf.tanh(tf.matmul(flat_embed, transform_param))  # (batch * max_contexts, dim * 3)
+        flat_embed = tf.tanh(tf.matmul(flat_embed, transform_param))  # (batch * max_contexts, dim * 2)
 
         contexts_weights = tf.matmul(flat_embed, attention_param)  # (batch * max_contexts, 1)
         batched_contexts_weights = tf.reshape(
@@ -276,10 +271,6 @@ class Code2VecModel(Code2VecModelBase):
             attention_param = tf.compat.v1.get_variable(
                 'ATTENTION', shape=(self.config.context_vector_size, 1),
                 dtype=tf.float32, trainable=False)
-            paths_vocab = tf.compat.v1.get_variable(
-                self.vocab_type_to_tf_variable_name_mapping[VocabType.Path],
-                shape=(self.vocabs.path_vocab.size, self.config.PATH_EMBEDDINGS_SIZE),
-                dtype=tf.float32, trainable=False)
 
             targets_vocab = tf.transpose(targets_vocab)  # (dim * 3, target_word_vocab)
 
@@ -289,9 +280,8 @@ class Code2VecModel(Code2VecModelBase):
             # shape of (batch, max_contexts) for the other tensors
 
             code_vectors, attention_weights = self._calculate_weighted_contexts(
-                tokens_vocab, paths_vocab, attention_param, input_tensors.path_source_token_indices,
-                input_tensors.path_indices, input_tensors.path_target_token_indices,
-                input_tensors.context_valid_mask, is_evaluating=True)
+                tokens_vocab, attention_param, input_tensors.path_source_token_indices,
+                input_tensors.path_target_token_indices, input_tensors.context_valid_mask, is_evaluating=True)
 
         scores = tf.matmul(code_vectors, targets_vocab)  # (batch, target_word_vocab)
 

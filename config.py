@@ -62,7 +62,6 @@ class Config:
         self.MAX_PATH_VOCAB_SIZE = 911417
         self.DEFAULT_EMBEDDINGS_SIZE = 128
         self.TOKEN_EMBEDDINGS_SIZE = self.DEFAULT_EMBEDDINGS_SIZE
-        self.PATH_EMBEDDINGS_SIZE = self.DEFAULT_EMBEDDINGS_SIZE
         self.CODE_VECTOR_SIZE = self.context_vector_size
         self.TARGET_EMBEDDINGS_SIZE = self.CODE_VECTOR_SIZE
         self.DROPOUT_KEEP_RATE = 0.75
@@ -141,9 +140,8 @@ class Config:
 
     @property
     def context_vector_size(self) -> int:
-        # The context vector is actually a concatenation of the embedded
-        # source & target vectors and the embedded path vector.
-        return self.PATH_EMBEDDINGS_SIZE + 2 * self.TOKEN_EMBEDDINGS_SIZE
+        # The context vector is actually a concatenation of the embedded source & target vectors
+        return 2 * self.TOKEN_EMBEDDINGS_SIZE
 
     @property
     def is_training(self) -> bool:
