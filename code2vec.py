@@ -1,8 +1,8 @@
+import tensorflow as tf
 from vocabularies import VocabType
 from config import Config
 from interactive_predict import InteractivePredictor
 from model_base import Code2VecModelBase
-
 
 def load_model_dynamically(config: Config) -> Code2VecModelBase:
     assert config.DL_FRAMEWORK in {'tensorflow', 'keras'}
@@ -15,6 +15,8 @@ def load_model_dynamically(config: Config) -> Code2VecModelBase:
 
 if __name__ == '__main__':
     config = Config(set_defaults=True, load_from_args=True, verify=True)
+
+    config.log('GPU is available: %s' % tf.test.is_gpu_available())
 
     model = load_model_dynamically(config)
     config.log('Done creating code2vec model')
