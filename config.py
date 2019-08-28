@@ -60,7 +60,7 @@ class Config:
         self.MAX_TOKEN_VOCAB_SIZE = 1301136
         self.MAX_TARGET_VOCAB_SIZE = 261245
         self.MAX_PATH_VOCAB_SIZE = 911417
-        self.DEFAULT_EMBEDDINGS_SIZE = 128
+        self.DEFAULT_EMBEDDINGS_SIZE = 192
         self.TOKEN_EMBEDDINGS_SIZE = self.DEFAULT_EMBEDDINGS_SIZE
         self.CODE_VECTOR_SIZE = self.context_vector_size
         self.TARGET_EMBEDDINGS_SIZE = self.CODE_VECTOR_SIZE
