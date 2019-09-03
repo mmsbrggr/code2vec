@@ -98,6 +98,9 @@ public class FeatureExtractor {
 
 				String path = generatePath(functionLeaves.get(i), functionLeaves.get(j), separator);
 				if (path != Common.EmptyString) {
+					assert(path.contains("^"));
+					assert(path.contains("_"));
+					path = this.processPath(path);
 					Property source = functionLeaves.get(i).getUserData(Common.PropertyKey);
 					Property target = functionLeaves.get(j).getUserData(Common.PropertyKey);
 					programFeatures.addFeature(source, path, target);
@@ -105,6 +108,32 @@ public class FeatureExtractor {
 			}
 		}
 		return programFeatures;
+	}
+
+	private String processPath(String path) {
+		if (m_CommandLineValues.OnlyCommonAncestor) {
+			return processPathOnlyCommonAncestor(path);
+		} else if (m_CommandLineValues.StripPath) {
+			return processStripPath(path);
+		}
+		return path;
+	}
+
+	private String processPathOnlyCommonAncestor(String path) {
+		String[] split = path.split("\\^");
+		path = split[split.length - 1];
+		split = path.split("_");
+		return split[0];
+	}
+
+	private String processStripPath(String path) {
+		String commonAncestor = this.processPathOnlyCommonAncestor(path);
+		String[] split = path.split("\\^");
+		String first = split[0];
+		split = path.split("_");
+		String last = split[split.length - 1];
+
+		return first + "_" + commonAncestor + "_" + last;
 	}
 
 	private static ArrayList<Node> getTreeStack(Node node) {

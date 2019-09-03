@@ -39,6 +39,12 @@ public class CommandLineValues {
 	@Option(name = "--max_child_id", required = false)
 	public int MaxChildId = Integer.MAX_VALUE;
 
+	@Option(name = "--only_common_ancestor", required = false)
+	public boolean OnlyCommonAncestor = false;
+
+	@Option(name = "--strip_path", required = false)
+	public boolean StripPath = false;
+
 	public CommandLineValues(String... args) throws CmdLineException {
 		CmdLineParser parser = new CmdLineParser(this);
 		try {
